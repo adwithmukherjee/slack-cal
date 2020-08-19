@@ -1,30 +1,46 @@
 const express = require("express");
 const axios = require("axios")
-const http = require("http")
+const http = require("http");
+const bodyParser = require("body-parser")
 const app = express(); 
+const qs = require("qs")
+const { callAPIMethod } = require("./api")
+
+const parseReq = (req, key) => {
+    //returns the string between "key=" and the next "&"
+    const data = `${req}`
+    const startIndex = data.search(key)+key.length+1
+    const endIndex = data.slice(startIndex, -1).search("&")
+    return data.slice(startIndex, -1).substring(0,endIndex)
+}
 
 
-const server = http.createServer(async (req, res) => {
-    const pathName = req.url
-    if(pathName === '/test'){
-        //TEST 
-        await axios.post(
-            "https://hooks.slack.com/services/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", 
-            {"text":"Hello, World!"}
-        )
-        res.end("request sent")
-    } else {
-        //NOT FOUND
-    
-        res.writeHead(404, {
-          "Content-type": "text/html", //the browser is expecting html text code
-          
-        });
-        res.end("<h1>this page could not be found</h1>");
-      }
+const rawBodyBuffer = (req, res, buf, encoding) => {
+    if (buf && buf.length) {
+      req.rawBody = buf.toString(encoding || 'utf8');
+    }
+  };
+  
+app.use(bodyParser.urlencoded({ verify: rawBodyBuffer, extended: true }));
+app.use(bodyParser.json({ verify: rawBodyBuffer }));
+
+app.post('/test', async (req,res)=>{
+    const { channel_id } = req.body
+    console.log(channel_id)
+    const response = await callAPIMethod(
+        "chat.postMessage",
+
+        {
+            "channel": channel_id,
+            "text": "Hello world! This is a test :tada:",
+           
+        }
+    )
+    console.log(response)
+ 
+    res.end()
 })
 
-
-server.listen(5000, "127.0.0.1", () => {
-    console.log("Listening to server");
-  });
+const server = app.listen(5000, () => {
+    console.log("Listening on port 5000")
+})
