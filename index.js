@@ -119,6 +119,9 @@ const rawBodyBuffer = (req, res, buf, encoding) => {
 app.use(bodyParser.urlencoded({ verify: rawBodyBuffer, extended: true }));
 app.use(bodyParser.json({ verify: rawBodyBuffer }));
 
+
+
+
 app.get('/callback', (req,res) => {
     const { code } = req.query
     
@@ -135,6 +138,7 @@ app.get('/callback', (req,res) => {
     listEvents(auth)
     console.log("test")
     res.redirect("slack://open")
+    res.redirect("https://google.com") 
 
 })
 
