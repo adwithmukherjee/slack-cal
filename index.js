@@ -6,6 +6,18 @@ const app = express();
 const qs = require("qs")
 const { callAPIMethod } = require("./api")
 
+
+const MongoClient = require('mongodb').MongoClient;
+const uri = "mongodb+srv://josh:joshua00@cluster0.dwb86.mongodb.net/users?retryWrites=true&w=majority";
+const client = new MongoClient(uri, { useNewUrlParser: true });
+client.connect(err => {
+  const collection = client.db("users").collection("users");
+  console.log('success');
+  // perform actions on the collection object
+  client.close();
+});
+
+
 const parseReq = (req, key) => {
     //returns the string between "key=" and the next "&"
     const data = `${req}`
