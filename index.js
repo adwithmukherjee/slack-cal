@@ -186,7 +186,8 @@ app.post('/test', async (req,res)=>{
         });
     }
 
-    fs.readFile('credentials.json', (err, content) => {
+    const credentialsPath = process.env.NODE_ENV === "production" ? './config/credentials_prod.json' : './config/credentials_dev.json'
+    fs.readFile(credentialsPath, (err, content) => {
         if (err) return console.log('Error loading client secret file:', err);
         // Authorize a client with credentials, then call the Google Calendar API.
         authorize(JSON.parse(content));
