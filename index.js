@@ -123,8 +123,8 @@ app.use(bodyParser.json({ verify: rawBodyBuffer }));
 
 
 app.get('/callback', (req,res) => {
-  res.send("poops")
-  /*const { code } = req.query
+  
+  const { code } = req.query
     
 
     auth.getToken(code, (err, token) => {
@@ -140,7 +140,7 @@ app.get('/callback', (req,res) => {
     console.log("test")
     res.redirect("slack://open")
     res.redirect("https://google.com") 
-    */
+    
 
 })
 
