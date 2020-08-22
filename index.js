@@ -1,13 +1,26 @@
 const express = require("express");
+const mongoose = require("mongoose")
 const axios = require("axios")
-const http = require("http");
+
 const bodyParser = require("body-parser")
 const app = express(); 
-const qs = require("qs")
+
 //const { authorize, listEvents, getAccessToken } = require("./calendar")
 const { callAPIMethod } = require("./api")
+const keys = require("./config/keys.js")
 const {google} = require('googleapis');
 const fs = require('fs');
+
+require("./models/User")
+
+mongoose.connect(keys.mongoURI, {
+  useNewUrlParser: true, 
+  useUnifiedTopology: true,
+})
+
+const User = mongoose.model("users"); 
+
+let requestingUser = null;
 
 let auth = null; 
 const TOKEN_PATH = 'token.json';
@@ -24,7 +37,7 @@ const listEvents = (auth) => {
     }, async (err, res) => {
       if (err) return console.log('The API returned an error: ' + err);
       const events = res.data.items;
-      console.log(events)
+   
       if (events.length) {
         await callAPIMethod(
             'chat.postMessage', 
@@ -40,7 +53,7 @@ const listEvents = (auth) => {
                     },
                     {
                       "type": "section",
-                      "block_id": "section567",
+                      "block_id": "1",
                       "text": {
                         "type": "mrkdwn",
                         "text": `• ${events[0].summary}`
@@ -56,7 +69,7 @@ const listEvents = (auth) => {
                     },
                     {
                         "type": "section",
-                        "block_id": "section568",
+                        "block_id": "2",
                         "text": {
                           "type": "mrkdwn",
                           "text": `• ${events[1].summary ? events[1].summary : "nothing"}`
@@ -72,7 +85,7 @@ const listEvents = (auth) => {
                     },
                     {
                         "type": "section",
-                        "block_id": "section569",
+                        "block_id": "3",
                         "text": {
                           "type": "mrkdwn",
                           "text": `• ${events[2].summary ? events[2].summary : "nothing"}`
@@ -127,40 +140,74 @@ app.get('/callback', (req,res) => {
   const { code } = req.query
     
 
-    auth.getToken(code, (err, token) => {
+    auth.getToken(code, async (err, token) => {
+        
         if (err) return console.error('Error retrieving access token', err);
         auth.setCredentials(token);
+        console.log(token)
         // Store the token to disk for later program executions
+        const { access_token, scope, token_type, expiry_date } = token
+      
+        const existingUser = await User.findOne({name: requestingUser})
+        if(existingUser){
+        } else {
+          try{
+            const user = new User({
+              name: requestingUser, 
+              access_token, 
+              scope, 
+              token_type, 
+              expiry_date
+  
+            })
+            await user.save()
+            
+          } catch {
+              console.log("error uh oh" )
+          }
+        }
+
         fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
           if (err) return console.error(err);
           console.log('Token stored to', TOKEN_PATH);
         });
-      });
+    });
+
+    
+
     listEvents(auth)
     console.log("test")
     res.redirect("slack://open")
-    res.redirect("https://google.com") 
+    
     
 
 })
 
 
+app.post('/button', async (req,res) => {
+  
+  const choice = parseInt(JSON.parse(req.body.payload).actions[0].block_id)
+  console.log(choice)
+  res.end("beans")
+
+});
+
 app.post('/test', async (req,res)=>{
-    console.log(req.body)
+    
     
     const { channel_id, user_id } = req.body
   
     //CALENDAR STUFF
 
     
-    
+    requestingUser = user_id
 
     const sendAuthUrl = async (oAuth2Client) => {
         const authUrl = oAuth2Client.generateAuthUrl({
             access_type: 'offline',
             scope: SCOPES,
           });
-        console.log(authUrl)
+       
         const response = await callAPIMethod(
             "chat.postMessage", 
             {
@@ -170,20 +217,40 @@ app.post('/test', async (req,res)=>{
         )
     }
 
-    const authorize = (credentials) => {
-        const {client_secret, client_id, redirect_uris} = credentials.web;
+    const authorize = async (credentials) => {
+      const {client_secret, client_id, redirect_uris} = credentials.web;
 
-        const oAuth2Client = new google.auth.OAuth2(
-        client_id, client_secret, redirect_uris[0]);
+      const oAuth2Client = new google.auth.OAuth2(
+      client_id, client_secret, redirect_uris[0]);
 
-        auth = oAuth2Client
+      auth = oAuth2Client
 
-    // Check if we have previously stored a token.
+      // Check if we have previously stored a token.
+
+      const user = await User.findOne({name: requestingUser})
+     
+
+      if(!user){
+        return sendAuthUrl(oAuth2Client)
+      } 
+
+      const {access_token, scope, token_type, expiry_date} = user
+      const token = {
+        access_token, 
+        scope, 
+        token_type, 
+        expiry_date: parseInt(expiry_date)
+      }
+      oAuth2Client.setCredentials(token)
+      listEvents(oAuth2Client)
+
+          /*
         fs.readFile(TOKEN_PATH, async (err, token) => {
             if (err) return sendAuthUrl(oAuth2Client);
             oAuth2Client.setCredentials(JSON.parse(token));
             listEvents(oAuth2Client);
         });
+        */
     }
 
     const credentialsPath = process.env.NODE_ENV === "production" ? './config/credentials_prod.json' : './config/credentials_dev.json'
@@ -200,95 +267,11 @@ app.post('/test', async (req,res)=>{
     //SLACK TEST STUFF
     const conversation_info = await axios.get(`https://slack.com/api/conversations.members?token=xoxp-1301288377174-1306647213349-1315407075604-bbec7f6b4ebc601867f82ae4b5904e8d&channel=${channel_id}&pretty=1`)
     const { members } = conversation_info.data
-    console.log(members)
+    
     const otherUser = members.length === 1 ? members[0] : members[0] === user_id ? members[1] : members[0]; 
     console.log("OTHER USER", otherUser)
     let otherUserName = await axios.get(`https://slack.com/api/users.info?token=xoxp-1301288377174-1306647213349-1315407075604-bbec7f6b4ebc601867f82ae4b5904e8d&user=${otherUser}&pretty=1`)
-    /*
-    const response = await callAPIMethod(
-        "chat.postMessage",
-
-        {
-            "channel": channel_id,
-            "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": `Here's a list of common available meeting times! Select one to invite ${otherUserName.data.user.real_name} to.`
-                  }
-                },
-                {
-                  "type": "section",
-                  "block_id": "section567",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "• 12:00pm (EST) Thursday, Aug 20, 2020"
-                  },
-                  "accessory": {
-                    "type": "button",
-                      "text": {
-                          "type": "plain_text",
-                          "text": "Send Invite",
-                          "emoji": false
-                      }
-                  }
-                },
-                {
-                    "type": "section",
-                    "block_id": "section568",
-                    "text": {
-                      "type": "mrkdwn",
-                      "text": "• 12:00pm (EST) Thursday, Aug 20, 2020 "
-                    },
-                    "accessory": {
-                      "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "Send Invite",
-                            "emoji": false
-                        }
-                    }
-                },
-                {
-                    "type": "section",
-                    "block_id": "section569",
-                    "text": {
-                      "type": "mrkdwn",
-                      "text": "• 12:00pm (EST) Thursday, Aug 20, 2020 "
-                    },
-                    "accessory": {
-                      "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "Send Invite",
-                            "emoji": false
-                        }
-                    }
-                },
-                {
-                    "type": "actions",
-                    "elements": [
-                      {
-                        "type": "button",
-                          "text": {
-                              "type": "plain_text",
-                              "text": "Load more Options",
-                              "emoji": false
-                          }
-                      }
-                    ]
-                  }
-               
-                
-              ]
-            }
-           
-        
-    )
-    */
-            
-    
+  
  
     res.end()
 })
