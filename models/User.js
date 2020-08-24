@@ -4,6 +4,7 @@ const Schema = mongoose.Schema
 
 const userSchema = new Schema({
     name: String, 
+    refresh_token:String,
     access_token: String, 
     scope: String, 
     token_type: String,
