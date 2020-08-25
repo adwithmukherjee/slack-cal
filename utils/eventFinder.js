@@ -7,6 +7,7 @@
 const findBusyTimes = (cal1, cal2) => {
     var parsed = [];
 
+    if (cal1){
     for (i = 0; i < cal1.length; i++) {
       //this gets all the start and end dates of the time
       if (cal1[i]["start"]["dateTime"]) {
@@ -15,14 +16,18 @@ const findBusyTimes = (cal1, cal2) => {
         parsed.push({ start: starttime, end: endtime }); //date.parse is in UTC (so convert to timezone later)
       }
     }   
-    for (i = 0; i < cal2.length; i++) {
+  }
+   if (cal2){
+
+   for (i = 0; i < cal2.length; i++) {
       //this gets all the start and end dates of the time
       if (cal2[i]["start"]["dateTime"]) {
         var starttime = Date.parse(cal2[i]["start"]["dateTime"]);
         var endtime = Date.parse(cal2[i]["end"]["dateTime"]);
         parsed.push({ start: starttime, end: endtime }); //date.parse is in UTC (so convert to timezone later)
       }
-    }   
+    }
+  }   
     return parsed;
 
     
@@ -31,8 +36,12 @@ const findBusyTimes = (cal1, cal2) => {
 
 const findFreeTimes = (cal1, cal2) => {
 
+    if (!cal1 && !cal2){
+        return null;
+    }
     var times = findBusyTimes(cal1, cal2)
 
+    
     var now = new Date();
     var morning;
     var evening;

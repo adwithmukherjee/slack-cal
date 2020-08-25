@@ -181,11 +181,20 @@ app.post('/test', async (req,res)=>{
     console.log(user1)
     
     const freeTimes = findFreeTimes(user2, user1)
+    var beginning;
+    var end;
+    if (freeTimes){
 
+    
     console.log(new Date(freeTimes[0].start).toISOString())
 
-    const beginning = new Date(freeTimes[0].start).toLocaleString("en-US", {timeZone: "America/New_York"})
-    const end = new Date(new Date(freeTimes[0].start).getTime()+30*60000).toLocaleString("en-US", {timeZone: "America/New_York"})
+    beginning = new Date(freeTimes[0].start).toLocaleString("en-US", {timeZone: "America/New_York"})
+    end = new Date(new Date(freeTimes[0].start).getTime()+30*60000).toLocaleString("en-US", {timeZone: "America/New_York"})
+    }
+    else{
+      begininng ="";
+      end ="";
+    }
     
     await callAPIMethod(
       'chat.postEphemeral', 
