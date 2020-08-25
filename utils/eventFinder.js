@@ -8,7 +8,9 @@ const findBusyTimes = (cal1, cal2) => {
     var parsed = [];
 
     if (cal1){
+      console.log("USER 1")
     for (i = 0; i < cal1.length; i++) {
+      console.log(cal1[i]["start"]["dateTime"].substring(11,16) + ` -- ` + cal1[i]["end"]["dateTime"].substring(11,16));
       //this gets all the start and end dates of the time
       if (cal1[i]["start"]["dateTime"]) {
         var starttime = Date.parse(cal1[i]["start"]["dateTime"]);
@@ -18,8 +20,10 @@ const findBusyTimes = (cal1, cal2) => {
     }   
   }
    if (cal2){
-
+console.log("USER 2")
    for (i = 0; i < cal2.length; i++) {
+    console.log(cal1[i]["start"]["dateTime"].substring(11,16) + ` -- ` + cal1[i]["end"]["dateTime"].substring(11,16));
+
       //this gets all the start and end dates of the time
       if (cal2[i]["start"]["dateTime"]) {
         var starttime = Date.parse(cal2[i]["start"]["dateTime"]);

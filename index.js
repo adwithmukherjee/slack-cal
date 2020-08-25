@@ -178,7 +178,8 @@ app.post('/test', async (req,res)=>{
    
     const user1 = await getUserEvents(user_id, credentials)
 
-    console.log(user1)
+
+    //console.log(user1)
     
     const freeTimes = findFreeTimes(user2, user1)
     var beginning;
