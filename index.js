@@ -180,8 +180,15 @@ app.post('/test', async (req,res)=>{
 
     console.log(user1)
     
-    const freeTimes = findFreeTimes(user2, user1)
+    //const freeTimes = findFreeTimes(user2, user1)
 
+    let freeTimes = []; //only need to run these lines to get a 2D array with all free times over three days
+  for (day = 2; day < 5; day++) {
+    //get all the availabilities for the next three days starting two days out
+    freeTimes.push(findFreeTimes(user1, user2, day));
+  }
+
+  // NEED TO JUST AFTER THIS BECAUSE freeTimes is now a 2d array with the first dimension as the day and the second dimension as a specific slot in a day
     console.log(new Date(freeTimes[0].start).toISOString())
 
     const beginning = new Date(freeTimes[0].start).toLocaleString("en-US", {timeZone: "America/New_York"})
