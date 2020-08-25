@@ -10,6 +10,7 @@ const { callAPIMethod } = require("./api");
 const { google } = require("googleapis");
 const fs = require("fs");
 const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
+const { notStrictEqual } = require("assert");
 
 let auth = null;
 const TOKEN_PATH = "token.json";
@@ -17,32 +18,67 @@ const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
 
 propdata1 = [
   {
-    start: { dateTime: "2020-08-21T08:00:00-04:00" },
-    end: { dateTime: "2020-08-21T09:15:00-04:00" },
+    start: { dateTime: "2020-08-26T08:00:00-04:00" },
+    end: { dateTime: "2020-08-26T09:15:00-04:00" },
   },
   {
-    start: { dateTime: "2020-08-21T15:00:00-04:00" },
-    end: { dateTime: "2020-08-21T15:15:00-04:00" },
+    start: { dateTime: "2020-08-26T15:00:00-04:00" },
+    end: { dateTime: "2020-08-26T15:15:00-04:00" },
   },
   {
-    start: { dateTime: "2020-08-21T15:30:00-04:00" },
-    end: { dateTime: "2020-08-21T16:30:00-04:00" },
+    start: { dateTime: "2020-08-26T15:30:00-04:00" },
+    end: { dateTime: "2020-08-26T16:30:00-04:00" },
+  },
+  {
+    start: { dateTime: "2020-08-27T08:00:00-04:00" },
+    end: { dateTime: "2020-08-27T09:15:00-04:00" },
+  },
+  {
+    start: { dateTime: "2020-08-27T15:00:00-04:00" },
+    end: { dateTime: "2020-08-27T15:15:00-04:00" },
+  },
+  {
+    start: { dateTime: "2020-08-27T15:30:00-04:00" },
+    end: { dateTime: "2020-08-27T16:30:00-04:00" },
+  },
+  {
+    start: { dateTime: "2020-08-268T08:00:00-04:00" },
+    end: { dateTime: "2020-08-28T09:15:00-04:00" },
+  },
+  {
+    start: { dateTime: "2020-08-28T15:00:00-04:00" },
+    end: { dateTime: "2020-08-28T15:15:00-04:00" },
+  },
+  {
+    start: { dateTime: "2020-08-28T15:30:00-04:00" },
+    end: { dateTime: "2020-08-28T16:30:00-04:00" },
   },
 ];
 
 propdata2 = [
   {
-    start: { dateTime: "2020-08-21T15:00:00-05:00" },
-    end: { dateTime: "2020-08-21T15:15:00-05:00" },
+    start: { dateTime: "2020-08-26T15:00:00-02:00" },
+    end: { dateTime: "2020-08-26T15:15:00-05:00" },
   },
   {
-    start: { dateTime: "2020-08-21T15:30:00-05:00" },
-    end: { dateTime: "2020-08-21T16:30:00-05:00" },
+    start: { dateTime: "2020-08-26T15:30:00-05:00" },
+    end: { dateTime: "2020-08-26T16:30:00-05:00" },
   },
-
   {
-    start: { dateTime: "2020-08-21T16:30:00-05:00" },
-    end: { dateTime: "2020-08-21T20:00:00-05:00" },
+    start: { dateTime: "2020-08-26T16:30:00-05:00" },
+    end: { dateTime: "2020-08-26T20:00:00-05:00" },
+  },
+  {
+    start: { dateTime: "2020-08-27T15:00:00-05:00" },
+    end: { dateTime: "2020-08-27T15:15:00-05:00" },
+  },
+  {
+    start: { dateTime: "2020-08-27T15:30:00-05:00" },
+    end: { dateTime: "2020-08-27T16:30:00-05:00" },
+  },
+  {
+    start: { dateTime: "2020-08-27T16:30:00-05:00" },
+    end: { dateTime: "2020-08-27T20:00:00-05:00" },
   },
 ];
 
@@ -168,126 +204,44 @@ app.get("/callback", (req, res) => {
   res.redirect("https://google.com");
 });
 
-const findFreeTimes = (times) => {
-  var now = new Date();
-  var morning;
-  var evening;
-  if (now.getHours() > 12) {
-    //then it is after 12pm so find times for 2 days from now
-    morning = new Date(); //set the morning as 2 days from now
-    morning.setDate(now.getDate() + 2);
-    morning.setHours(8);
-    morning.setMinutes(0);
-    morning.setSeconds(0);
-
-    morning.setMilliseconds(0);
-
-    evening = new Date(); //set the morning as 2 days from now
-    evening.setDate(now.getDate() + 2);
-    evening.setHours(20);
-    evening.setMinutes(0);
-    evening.setSeconds(0);
-
-    evening.setMilliseconds(0);
-  } else {
-    //we're somewhere before 12pm on the day so
-    morning = new Date(); //set the morning as 2 days from now
-    morning.setDate(now.getDate());
-    morning.setHours(8);
-    morning.setMinutes(0);
-    morning.setSeconds(0);
-
-    morning.setMilliseconds(0);
-
-    evening = new Date(); //set the morning as 2 days from now
-    evening.setDate(now.getDate());
-    evening.setHours(20);
-    evening.setMinutes(0);
-    evening.setSeconds(0);
-
-    evening.setMilliseconds(0);
-  }
-
-  var parsed = [{ start: Date.parse(morning), end: Date.parse(evening) }];
-  for (i = 0; i < times.length; i++) {
-    for (k = 0; k < parsed.length; k++) {
-      if (parsed[k].end < times[i].start) {
-        continue;
-      }
-      if (parsed[k].start > times[i].end) {
-        // if the time block starts after the end of the free block the ignore
-        continue;
-      }
-      if (
-        parsed[k].start < times[i].start && // the event is inside the free block
-        parsed[k].end > times[i].end
-      ) {
-        //the end of event is inside free block
-        //if the times not free in question is within the block currently free
-        parsed.push({ start: times[i].end, end: parsed[k].end }); //then split the array into two arrays with the original having the original start and new end,
-        //then the other one should be end of the event and end of current one
-        parsed[k].end = times[i].start; //then the original
-      } else if (
-        parsed[k].start >= times[i].start && // this means the event starts before the current bracket of free time
-        parsed[k].end >= times[i].end //but the end of the free bracket happens after the time not free
-      ) {
-        //half of the event is the free time
-        parsed[k].start = times[i].end; //then the start of the event is now later
-      } else if (
-        parsed[k].start <= times[i].start &&
-        parsed[k].end <= times[i].end
-      ) {
-        parsed[k].end = times[i].start; //then the end of the event is now earlier
-      }
-      if (parsed[k].end === parsed[k].start) {
-        parsed.splice(k, 1);
-      }
-    }
-  }
-  return parsed;
+const getRandomArbitrary = (min, max) => {
+  return Math.random() * (max - min) + min;
 };
-
-const findBusyTimes = (cal1, cal2) => {
-  var parsed = [];
-
-  for (i = 0; i < cal1.length; i++) {
-    //this gets all the start and end dates of the time
-    if (cal1[i]["start"]["dateTime"]) {
-      var starttime = Date.parse(cal1[i]["start"]["dateTime"]);
-      var endtime = Date.parse(cal1[i]["end"]["dateTime"]);
-      parsed.push({ start: starttime, end: endtime }); //date.parse is in UTC (so convert to timezone later)
-    }
-  }
-
-  for (i = 0; i < cal2.length; i++) {
-    //this gets all the start and end dates of the time
-    if (cal2[i]["start"]["dateTime"]) {
-      var starttime = Date.parse(cal2[i]["start"]["dateTime"]);
-      var endtime = Date.parse(cal2[i]["end"]["dateTime"]);
-      parsed.push({ start: starttime, end: endtime }); //date.parse is in UTC (so convert to timezone later)
-    }
-  }
-
-  return parsed;
-};
-
 app.get("/hello", (req, res) => {
   //var freeTime1 = findFreeTimes(propdata1);
   //var freeTime2 = findFreeTimes(propdata2);
-  var busyTimes = findBusyTimes(propdata1, propdata2);
+  let busyTimes = findBusyTimes(propdata1, propdata2, 2); //[];
+  // for (i = 2; i < 5; i++) {
+  //   //get all the availabilities for the next three days starting two days out
+  //   busyTimes.push(findBusyTimes(propdata1, propdata2, i));
+  // }
+  //<20
   var message = `These are the times you're not free:<br/>`;
   for (i = 0; i < busyTimes.length; i++) {
-    message += `${new Date(busyTimes[i].start).toString()} to ${new Date(
+    message += ` ${new Date(busyTimes[i].start).toString()} to ${new Date(
       busyTimes[i].end
     ).toString()} <br/>`;
   }
 
-  var freeTimes = findFreeTimes(busyTimes);
-  var messageFree = `<br/><br/>These are the times you ARE free:<br/>`;
-  for (i = 0; i < freeTimes.length; i++) {
-    messageFree += `${new Date(freeTimes[i].start).toString()} to ${new Date(
-      freeTimes[i].end
-    ).toString()} <br/>`;
+  let freeTimes = []; //only need to run these lines to get a 2D array with all free times over three days
+  for (day = 2; day < 5; day++) {
+    //get all the availabilities for the next three days starting two days out
+    freeTimes.push(findFreeTimes(propdata1, propdata2, day));
+  }
+
+  var messageFree = `<br/><br/>These are the times you ARE free:<br/>`; //this was just for test
+  if (freeTimes) {
+    //double nested for loop to print out each time one by one
+    for (weekday = 0; weekday < freeTimes.length; weekday++) {
+      for (i = 0; i < freeTimes[weekday].length; i++) {
+        messageFree += `${new Date(
+          freeTimes[weekday][i].start
+        ).toString()} to ${new Date(
+          freeTimes[weekday][i].end
+        ).toString()} <br/>`;
+      }
+      messageFree += `<br/>`;
+    }
   }
   res.send(message + messageFree);
 });
