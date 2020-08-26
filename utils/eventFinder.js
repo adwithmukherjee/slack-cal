@@ -6,7 +6,7 @@ const findBusyTimes = (cal1, cal2, offset) => {
   var now = new Date();
 
   if (cal1) {
-    console.log("USER 1");
+    //console.log("USER 1");
     for (i = 0; i < cal1.length; i++) {
       if (cal1[i]["start"]["dateTime"]) {
         if (
@@ -21,7 +21,7 @@ const findBusyTimes = (cal1, cal2, offset) => {
     }
   }
   if (cal2) {
-    console.log("USER 2");
+    //console.log("USER 2");
     for (i = 0; i < cal2.length; i++) {
       //this gets all the start and end dates of the time
       if (cal2[i]["start"]["dateTime"]) {
@@ -60,7 +60,7 @@ const findFreeTimes = (cal1, cal2, offset) => {
     } else {
       timezone1 = parseInt(cal1[0]["start"]["dateTime"].substring(19, 22));
     }
-    console.log(timezone1);
+    //console.log(timezone1);
   }
 
   if (cal2) {
@@ -69,7 +69,7 @@ const findFreeTimes = (cal1, cal2, offset) => {
     } else {
       timezone2 = parseInt(cal2[0]["start"]["dateTime"].substring(19, 22));
     }
-    console.log(timezone2);
+    //console.log(timezone2);
   }
 
   //then it is after 12pm so find times for 2 days from now

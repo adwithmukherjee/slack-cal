@@ -12,6 +12,7 @@ require("./models/User")
 const { listEvents, sendAuthUrl, getUserEvents, createEvent } = require("./api/calendar");
 const { callAPIMethod } = require("./api/api.js");
 const { findFreeTimes } = require("./utils/eventFinder")
+const { getFormattedDate } = require("./utils/getFormattedDate")
  
 mongoose.connect(keys.mongoURI, {
   useNewUrlParser: true, 
@@ -23,7 +24,10 @@ const credentialsPath = process.env.NODE_ENV === "production" ? './config/creden
 
 
 let requestingUser = null;
+let otherUser = null; 
 let activeChannel = null; 
+let lastOfferedIndex = 0; 
+let freeTimesISO = []
 
 let auth = null
 
@@ -73,14 +77,14 @@ app.use(bodyParser.json({ verify: rawBodyBuffer }));
 app.get('/callback', (req,res) => {
   
   const { code } = req.query
-    console.log(req.query)
     
-    console.log(auth)
+  
+ 
     auth.getToken(code, async (err, token) => {
       
         if (err) return console.error('Error retrieving access token', err);
         //auth.setCredentials(token);
-        console.log(token)
+        //console.log(token)
         // Store the token to disk for later program executions
         const { refresh_token } = token
 
@@ -112,7 +116,7 @@ app.get('/callback', (req,res) => {
     });
 
     
-    listEvents(requestingUser, activeChannel, auth)
+    //listEvents(requestingUser, activeChannel, auth)
     console.log("test")
     res.redirect("slack://open")
     
@@ -122,10 +126,143 @@ app.get('/callback', (req,res) => {
 
 
 app.post('/button', async (req,res) => {
+
+  if(JSON.parse(req.body.payload).actions[0].block_id === 'load_more'){
+    lastOfferedIndex += 3 
+    lastOfferedIndex = lastOfferedIndex % freeTimesISO.length
+   
+    await callAPIMethod(
+      'chat.postEphemeral', 
+      {
+          "channel": `${activeChannel}`,
+          "attachments": [{}],
+          "user": `${requestingUser}`,
+          "blocks":[
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": `*Here's a list of common meeting times! Select one to invite ${otherUser.user.real_name} to.*`
+                }
+              },
+              {
+                "type": "divider"
+              },
+              {
+                "type": "section",
+                "block_id": "0",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": `• ${getFormattedDate(freeTimesISO[lastOfferedIndex])}`
+                },
+                "accessory": {
+                  "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Schedule",
+                        "emoji": false
+                    }
+                }
+              }, 
+              {
+                "type": "divider"
+              },
+              {
+                "type": "section",
+                "block_id": "1",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": `• ${getFormattedDate(freeTimesISO[lastOfferedIndex+1])}`
+                },
+                "accessory": {
+                  "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Schedule",
+                        "emoji": false
+                    }
+                }
+              }, 
+              {
+                "type": "divider"
+              },
+              {
+                "type": "section",
+                "block_id": "2",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": `• ${getFormattedDate(freeTimesISO[lastOfferedIndex+2])}`
+                },
+                "accessory": {
+                  "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Schedule",
+                        "emoji": false
+                    }
+                }
+              }, 
+              {
+                "type": "divider"
+              },
+              {
+                "type": "actions",
+                "block_id": "load_more", 
+                "elements": [
+                  {
+                    "type": "button",
+                      "text": {
+                          "type": "plain_text",
+                          "text": "Load more Options",
+                          "emoji": false
+                      }
+                  }
+                ]
+              }
+              
+             
+              
+            ]
+      }
+    )
+    res.end() 
+    return 
+  }
+
+  console.log(requestingUser)
+  const requesterData =  await axios.get(`https://slack.com/api/users.info?token=xoxp-1301288377174-1306647213349-1315407075604-bbec7f6b4ebc601867f82ae4b5904e8d&user=${requestingUser}&pretty=1`)
+  const requesterName = requesterData.data.user.real_name
+  const otherUserName = otherUser.user.real_name
+
+  const attendeeEmail = otherUser.user.profile.email
+  //console.log(requesterData)
+
+  //console.log(requesterName)
+  //console.log(otherUserName)
+
   
   const choice = parseInt(JSON.parse(req.body.payload).actions[0].block_id)
-  console.log(choice)
-  createEvent(beginningISO, endISO, auth)
+  
+ // console.log(choice)
+
+ // console.log(freeTimesISO)
+
+  const start = new Date(freeTimesISO[lastOfferedIndex+choice].start).toISOString()
+  const end = new Date(freeTimesISO[lastOfferedIndex+choice].end).toISOString()
+
+  
+  
+  createEvent(start, end, requesterName, otherUserName, attendeeEmail, auth)
+
+  callAPIMethod(
+    'chat.postMessage', 
+    {
+      "channel": `${activeChannel}` , 
+      "text": `Hi, ${otherUserName}! I invited you to a meeting on *${getFormattedDate(freeTimesISO[lastOfferedIndex+choice])}* using */scheduler*! `
+    }
+  )
+  
+  
   res.end("beans")
 
 });
@@ -139,124 +276,176 @@ const getOtherUser = async(channel_id, user_id) => {
     
     const otherUser = members.length === 1 ? members[0] : members[0] === user_id ? members[1] : members[0]; 
     const userInfo = await axios.get(`https://slack.com/api/users.info?token=xoxp-1301288377174-1306647213349-1315407075604-bbec7f6b4ebc601867f82ae4b5904e8d&user=${otherUser}&pretty=1`)
+
     return  userInfo.data
 
 }
 
 
-let beginningISO = null
-let endISO = null 
+
 
 app.post('/test', async (req,res)=>{
     
     
-    const { channel_id, user_id } = req.body
+  const { channel_id, user_id } = req.body
+
+  //CALENDAR STUFF
   
-    //CALENDAR STUFF
+  requestingUser = user_id
+  activeChannel = channel_id
 
-    
-    requestingUser = user_id
-    activeChannel = channel_id
+  let credentials = null; 
+  fs.readFile(credentialsPath, (err, content) => {
+    if (err) return console.log('Error loading client secret file:', err);
+    // Authorize a client with credentials, then call the Google Calendar API.
+    credentials = JSON.parse(content)
+    authorize(user_id, credentials);
+  });
+  //console.log(await getOtherUser(channel_id, user_id))
+  
+  otherUser = await getOtherUser(channel_id, user_id)
 
-    let credentials = null; 
+  const user2 = await getUserEvents(otherUser.user.id, channel_id, credentials)
+  const user1 = await getUserEvents(user_id, channel_id, credentials)
 
-    fs.readFile(credentialsPath, (err, content) => {
-      if (err) return console.log('Error loading client secret file:', err);
-      // Authorize a client with credentials, then call the Google Calendar API.
-      credentials = JSON.parse(content)
-      authorize(user_id, credentials);
-    });
+  
 
-    //console.log(await getOtherUser(channel_id, user_id))
-    
-    const otherUser = await getOtherUser(channel_id, user_id)
-   
-    
+  if(user2 === "fuck"){ 
+    callAPIMethod(
+      'chat.postEphemeral', 
+      {
+        "channel": `${channel_id}` , 
+        "attachments": [{}],
+        "user": `${user_id}`,
+        "text": `Please ask Attendee to run */scheduler* to start finding mutual meeting times!`
+      }
+    )
+    res.end() 
+    return 
+  }
 
-
-    const user2 = await getUserEvents(otherUser.user.id, credentials)
-   
-    const user1 = await getUserEvents(user_id, credentials)
-
-    console.log(user1)
-    
-    //const freeTimes = findFreeTimes(user2, user1)
-
-    let freeTimes = []; //only need to run these lines to get a 2D array with all free times over three days
+  //const freeTimes = findFreeTimes(user2, user1)
+  let freeTimes = []; //only need to run these lines to get a 2D array with all free times over three days
   for (day = 2; day < 5; day++) {
     //get all the availabilities for the next three days starting two days out
     freeTimes.push(findFreeTimes(user1, user2, day));
   }
 
+  freeTimesISO = freeTimes.flat()
   // NEED TO JUST AFTER THIS BECAUSE freeTimes is now a 2d array with the first dimension as the day and the second dimension as a specific slot in a day
-    console.log(new Date(freeTimes[0].start).toISOString())
+    //onsole.log(new Date(freeTimes[lastOfferedIndex].start).toISOString())
 
-    const beginning = new Date(freeTimes[0].start).toLocaleString("en-US", {timeZone: "America/New_York"})
-    const end = new Date(new Date(freeTimes[0].start).getTime()+30*60000).toLocaleString("en-US", {timeZone: "America/New_York"})
-    
-    await callAPIMethod(
-      'chat.postEphemeral', 
-      {
-          "channel": `${channel_id}`,
-          "attachments": [{}],
-          "user": `${user_id}`,
-          "blocks":[
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": `Here's a list of common available meeting times! Select one to invite ${otherUser.user.real_name} to.`
-                }
+
+  //console.log(freeTimes)
+  await callAPIMethod(
+    'chat.postEphemeral', 
+    {
+        "channel": `${channel_id}`,
+        "attachments": [{}],
+        "user": `${user_id}`,
+        "blocks":[
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": `*Here's a list of common meeting times! Select one to invite ${otherUser.user.real_name} to.*`
+              }
+            },
+            {
+              "type": "divider"
+            },
+            {
+              "type": "section",
+              "block_id": "0",
+              "text": {
+                "type": "mrkdwn",
+                "text": `• ${getFormattedDate(freeTimesISO[lastOfferedIndex])}`
               },
-              {
-                "type": "section",
-                "block_id": "1",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": `• ${beginning}-${end.substring(11,16)} EST `
-                },
-                "accessory": {
+              "accessory": {
+                "type": "button",
+                  "text": {
+                      "type": "plain_text",
+                      "text": "Schedule",
+                      "emoji": false
+                  }
+              }
+            }, 
+            {
+              "type": "divider"
+            },
+            {
+              "type": "section",
+              "block_id": "1",
+              "text": {
+                "type": "mrkdwn",
+                "text": `• ${getFormattedDate(freeTimesISO[lastOfferedIndex+1])}`
+              },
+              "accessory": {
+                "type": "button",
+                  "text": {
+                      "type": "plain_text",
+                      "text": "Schedule",
+                      "emoji": false
+                  }
+              }
+            }, 
+            {
+              "type": "divider"
+            },
+            {
+              "type": "section",
+              "block_id": "2",
+              "text": {
+                "type": "mrkdwn",
+                "text": `• ${getFormattedDate(freeTimesISO[lastOfferedIndex+2])}`
+              },
+              "accessory": {
+                "type": "button",
+                  "text": {
+                      "type": "plain_text",
+                      "text": "Schedule",
+                      "emoji": false
+                  }
+              }
+            }, 
+            {
+              "type": "divider"
+            },
+            {
+              "type": "actions",
+              "block_id": "load_more", 
+              "elements": [
+                {
                   "type": "button",
                     "text": {
                         "type": "plain_text",
-                        "text": "Schedule",
+                        "text": "Load more Options",
                         "emoji": false
                     }
                 }
-              }
-              
-             
-              
-            ]
-      }
-    )
+              ]
+            }
+            
+           
+            
+          ]
+    }
+  )
 
-    beginningISO = new Date(freeTimes[0].start).toISOString(); 
-    endISO = new Date(new Date(freeTimes[0].start).getTime()+30*60000).toISOString()
-
-    //
-
-    console.log(beginning);
-    console.log(end);
-
-
-
-    
-    
-
+  //beginningISO = new Date(freeTimes[0].start).toISOString(); 
+  //endISO = new Date(new Date(freeTimes[0].start).getTime()+30*60000).toISOString()
   
-    
 
-
-    //SLACK TEST STUFF
-    
-    
-    
-    //let otherUserName = await axios.get(`https://slack.com/api/users.info?token=xoxp-1301288377174-1306647213349-1315407075604-bbec7f6b4ebc601867f82ae4b5904e8d&user=${otherUser}&pretty=1`)
+  //SLACK TEST STUFF
   
- 
-    res.end()
-})
+  
+  
+  //let otherUserName = await axios.get(`https://slack.com/api/users.info?token=xoxp-1301288377174-1306647213349-1315407075604-bbec7f6b4ebc601867f82ae4b5904e8d&user=${otherUser}&pretty=1`)
+
+
+  res.end()
+
+});
 
 const server = app.listen(process.env.PORT || 5000, () => {
     console.log("Listening on port 5000")

@@ -62,7 +62,7 @@ const listEvents = async (user, channel, auth) => {
                      },
                      {
                        "type": "section",
-                       "block_id": "1",
+                       "block_id": "0",
                        "text": {
                          "type": "mrkdwn",
                          "text": `• ${events[0].summary}`
@@ -78,7 +78,7 @@ const listEvents = async (user, channel, auth) => {
                      },
                      {
                          "type": "section",
-                         "block_id": "2",
+                         "block_id": "1",
                          "text": {
                            "type": "mrkdwn",
                            "text": `• ${events[1] ? events[1].summary : "nothing"}`
@@ -94,7 +94,7 @@ const listEvents = async (user, channel, auth) => {
                      },
                      {
                          "type": "section",
-                         "block_id": "3",
+                         "block_id": "2",
                          "text": {
                            "type": "mrkdwn",
                            "text": `• ${events[2] ? events[2].summary : "nothing"}`
@@ -110,6 +110,7 @@ const listEvents = async (user, channel, auth) => {
                      },
                      {
                          "type": "actions",
+                         "block_id": "load_more",
                          "elements": [
                            {
                              "type": "button",
@@ -135,7 +136,7 @@ const listEvents = async (user, channel, auth) => {
 
 
 
-const getUserEvents = async (otheruser_id, credentials) => {
+const getUserEvents = async (otheruser_id, channel_id, credentials) => {
   const {client_secret, client_id, redirect_uris} = credentials.web;
 
   const oAuth2Client = new google.auth.OAuth2(
@@ -146,16 +147,8 @@ const getUserEvents = async (otheruser_id, credentials) => {
 
   if(!otherUser){
     console.log("tell other user to sign in")
-    
-      callAPIMethod(
-        'chat.postMessage', 
-        {
-          "channel": 'D0190K38SG5' , 
-          "text": `Please ask Attendee to run /scheduler to start finding mutual meeting times!`
-        }
-      )
 
-    return 
+    return "fuck"
     
   } 
 
@@ -177,7 +170,7 @@ const getUserEvents = async (otheruser_id, credentials) => {
   calendar.events.list({
        calendarId: 'primary',
        timeMin: (new Date()).toISOString(),
-       maxResults: 4,
+       timeMax: (new Date(new Date().getTime()+96*60*60000)).toISOString(),
        singleEvents: true,
        orderBy: 'startTime',
      }, async (err, res) => {
@@ -193,6 +186,8 @@ const getUserEvents = async (otheruser_id, credentials) => {
   
   const events = await promise
 
+  
+
   return events
 
 }
@@ -202,13 +197,13 @@ const getUserEvents = async (otheruser_id, credentials) => {
 
 
 
-const createEvent = (start, end, auth) => {
+const createEvent = (start, end, attendee1,attendee2, email, auth) => {
 
   const calendar = google.calendar({version: 'v3', auth: auth})
 
   var event = {
-    summary: 'Meeting between Adwith and Adwith',
-    location: 'your moms house',
+    summary: `Meeting between ${attendee1} and ${attendee2}`,
+    location: 'Google Meet',
     description: "This meeting was scheduled with Slack Scheduler Bot",
     start: {
       dateTime: start,
@@ -216,7 +211,7 @@ const createEvent = (start, end, auth) => {
     end: {
       dateTime: end,
     },
-    attendees: [{ email: 'adwithmukherjee@gmail.com' }],
+    attendees: [{ email }],
     /*
     reminders: {
       useDefault: false,
