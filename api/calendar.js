@@ -159,9 +159,6 @@ const getUserEvents = async (otheruser_id, channel_id, credentials) => {
     refresh_token
   })
 
-  
-
-  
 
   const calendar = google.calendar({version: 'v3', auth: oAuth2Client});
     
@@ -174,7 +171,7 @@ const getUserEvents = async (otheruser_id, channel_id, credentials) => {
        singleEvents: true,
        orderBy: 'startTime',
      }, async (err, res) => {
-        
+        console.log(err)
         //events = res.data.items
         resolve(res.data.items)
 

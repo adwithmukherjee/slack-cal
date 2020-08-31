@@ -110,7 +110,7 @@ app.get('/callback', (req,res) => {
           } catch {
               console.log("error uh oh" )
           }
-        }
+         }
 
         
     });
@@ -332,6 +332,7 @@ app.post('/test', async (req,res)=>{
   }
 
   freeTimesISO = freeTimes.flat()
+  
   // NEED TO JUST AFTER THIS BECAUSE freeTimes is now a 2d array with the first dimension as the day and the second dimension as a specific slot in a day
     //onsole.log(new Date(freeTimes[lastOfferedIndex].start).toISOString())
 
