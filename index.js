@@ -81,6 +81,7 @@ app.get('/callback', (req,res) => {
   
  
     auth.getToken(code, async (err, token) => {
+        console.log(`TOKEN + ${token}` )
       
         if (err) return console.error('Error retrieving access token', err);
         //auth.setCredentials(token);
